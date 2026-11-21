@@ -1,0 +1,148 @@
+from collections import deque
+from dataclasses import dataclass, field
+
+import numpy as np
+from aocd.models import Puzzle
+from dotenv import load_dotenv
+from icecream import ic
+
+load_dotenv()
+
+
+
+@dataclass
+class LightInputs:
+    input_data: str
+    target_pattern: int = 0
+    toggle_commands: list[list[int]] = field(default_factory=list)
+    jolts: list[int] = field(default_factory=list)
+    dest_length: int = 0
+
+    def initialize(self):
+        temp = self.input_data.replace("]", '|')
+        temp = temp.replace("{", '|')
+        segments = temp.split("|")
+        target_light_input = segments[0].replace("[", '').strip()
+        command_input = segments[1].strip()
+        jolt_input = segments[2].replace("}", '').strip()
+
+        target_light_input = target_light_input.strip()
+        self.dest_length = len(target_light_input)
+
+        target_light_input = target_light_input.replace("#", "1").strip()
+        target_light_input = target_light_input.replace(".", "0").strip()
+        self.target_pattern = int(target_light_input[::-1], 2)
+        for command in command_input.split(" "):
+            current = command.replace("(", "").replace(")", "").strip()
+            self.toggle_commands.append([int(index) for index in current.split(",")])
+        for jolt in jolt_input.split(","):
+            self.jolts.append(int(jolt))
+
+@dataclass
+class LightMachine:
+    current_lights: int = 0
+    commands: list[list[int]] = field(default_factory=list)
+    last_command: list[int] = field(default_factory=list)
+
+
+def parse_line_input(input_line) -> LightInputs:
+    inputs = LightInputs(input_line)
+    inputs.initialize()
+    return inputs
+
+
+def part1_solve(input_lines: list[str]) -> None:
+    light_inputs = [parse_line_input(line) for line in input_lines]
+    completed_lights = {}
+    for light_index, light_input in enumerate(light_inputs):
+        runs = 0
+        machine_paths = deque([(0, 0)])
+        visited = {0}
+        while len(machine_paths) > 0:
+            in_progress_lights, commands = machine_paths.popleft()
+            if light_input.target_pattern == in_progress_lights:
+                completed_lights[light_index] = commands
+                break
+            runs += 1
+            for command in light_input.toggle_commands:
+                buttons = ['0'] * light_input.dest_length
+                for index in command:
+                    buttons[index] = '1'
+                number_mask = "".join(buttons[::-1])
+                masking_number = int(number_mask, 2)
+                current_lights = in_progress_lights ^ masking_number
+                if current_lights not in visited:
+                    visited.add(current_lights)
+                    machine_paths.append((current_lights, commands + 1))
+
+    totals = 0
+    for light_index, steps in completed_lights.items():
+        totals += steps
+
+    return totals
+
+
+
+def part2_solve(input_lines: list[str]) -> tuple[int, int]:
+    light_inputs = [parse_line_input(line) for line in input_lines]
+    completed_lights = {}
+    for light_index, light_input in enumerate(light_inputs):
+
+        grid = []
+        for command in light_input.toggle_commands:
+            row = [0] * light_input.dest_length
+            for index in command:
+                row[index] = 1
+            grid.append(row)
+        jolt_target = np.array(light_input.jolts)
+        matrix = np.array(grid)
+        start = np.transpose(matrix)
+        # https://numpy.org/doc/2.3/reference/generated/numpy.linalg.lstsq.html
+        x = np.linalg.lstsq(start, jolt_target)
+        completed_lights[light_index] = x[0]
+        # This is better but is too slow
+        # searching = True
+        # current_presses = max(light_input.jolts)
+        # while searching:
+        #     for combo in combinations_with_replacement(grid, current_presses):
+        #         matrix = np.array(combo)
+        #         flipped = np.sum(np.transpose(matrix), axis=1)
+        #         if (flipped == jolt_target).all():
+        #             searching = False
+        #             completed_lights[light_index] = current_presses
+        #             break
+        #     current_presses += 1
+    totals = []
+    for light_index, steps in completed_lights.items():
+        mins = []
+        maxes = []
+        for step in steps:
+            mins.append(np.floor(step))
+            maxes.append(np.ceil(step))
+        totals.append((sum(mins), sum(maxes)))
+    total_min = 0
+    total_max = 0
+    for mins, maxs in totals:
+        total_min += mins
+        total_max += maxs
+    return (total_min, total_max)
+
+
+def main() -> None:
+    puzzle = Puzzle(year=2025, day=10)
+    data = puzzle.input_data
+    example = puzzle.examples.pop()
+    example_data = example.input_data.splitlines()
+
+    ic(part1_solve(example_data))
+    ic(part1_solve(puzzle.input_data.splitlines()))
+    #
+    ic(part2_solve(example_data))
+    # this only gives you a range because of the least squares method
+    # kept guessing inputs into AoC from the range till accepted
+    # my range is (np.float64(17394.0), np.float64(18679.0))
+    ic(part2_solve(puzzle.input_data.splitlines()))
+
+
+if __name__ == '__main__':
+    main()
