@@ -1,0 +1,16 @@
+[project]
+name = "advent2026"
+version = "0.1.0"
+requires-python = ">=3.15"
+dependencies = [
+    "advent-of-code-data>=2.2.0",
+    "icecream>=2.2.0",
+    "more-itertools>=11.2.1",
+    "networkx>=3.7",
+    "numpy>=2.5.5",
+    "pydapper>=0.13.1",
+    "python-dotenv>=1.2.4",
+    "scipy>=1.18.1",
+    "shapely>=2.2.0",
+    "sympy>=1.14.0",
+]
